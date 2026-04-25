@@ -15,6 +15,8 @@ from pgvector.sqlalchemy import Vector
 from migrations.utils import index_exists, table_exists
 from src.config import settings
 
+_VECTOR_DIMS = settings.VECTOR_STORE.DIMENSIONS
+
 # revision identifiers, used by Alembic.
 revision: str = "917195d9b5e9"
 down_revision: str | None = "d429de0e5338"
@@ -28,7 +30,7 @@ def upgrade() -> None:
         "message_embeddings",
         sa.Column("id", sa.BigInteger(), sa.Identity(), nullable=False),
         sa.Column("content", sa.Text(), nullable=False),
-        sa.Column("embedding", Vector(1536), nullable=False),
+        sa.Column("embedding", Vector(_VECTOR_DIMS), nullable=False),
         sa.Column("message_id", sa.Text(), nullable=False),
         sa.Column("workspace_name", sa.Text(), nullable=False),
         sa.Column("session_name", sa.Text(), nullable=True),
