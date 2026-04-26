@@ -144,11 +144,13 @@ class OpenAIBackend:
             thinking_effort=thinking_effort,
             extra_params=extra_params,
         )
+        extra_body = params.pop("_extra_body", None)
+        _extra_body_kwarg = {"extra_body": extra_body} if extra_body else {}
 
         if isinstance(response_format, type):
             params["response_format"] = response_format
             try:
-                response = await self._client.chat.completions.parse(**params)
+                response = await self._client.chat.completions.parse(**params, **_extra_body_kwarg)
             except LengthFinishReasonError as exc:
                 truncated = exc.completion
                 raw_content = truncated.choices[0].message.content or ""
@@ -202,7 +204,7 @@ class OpenAIBackend:
         if extra_params and extra_params.get("json_mode"):
             params["response_format"] = {"type": "json_object"}
 
-        response = await self._client.chat.completions.create(**params)
+        response = await self._client.chat.completions.create(**params, **_extra_body_kwarg)
         return self._normalize_response(response)
 
     async def stream(
@@ -237,6 +239,8 @@ class OpenAIBackend:
             thinking_effort=thinking_effort,
             extra_params=extra_params,
         )
+        stream_extra_body = params.pop("_extra_body", None)
+        _stream_extra_body_kwarg = {"extra_body": stream_extra_body} if stream_extra_body else {}
         params["stream"] = True
         params["stream_options"] = {"include_usage": True}
         if isinstance(response_format, type):
@@ -254,7 +258,7 @@ class OpenAIBackend:
         elif extra_params and extra_params.get("json_mode"):
             params["response_format"] = {"type": "json_object"}
 
-        response_stream = await self._client.chat.completions.create(**params)
+        response_stream = await self._client.chat.completions.create(**params, **_stream_extra_body_kwarg)
         finish_reason: str | None = None
         usage_chunk_received = False
         async for chunk in response_stream:
@@ -302,7 +306,11 @@ class OpenAIBackend:
             params["temperature"] = temperature
 
         if thinking_effort:
-            params["reasoning_effort"] = thinking_effort
+            if thinking_effort == "none":
+                # llama.cpp ignores reasoning_effort="none"; disable via extra_body instead
+                params["_extra_body"] = {"chat_template_kwargs": {"enable_thinking": False}}
+            else:
+                params["reasoning_effort"] = thinking_effort
 
         if stop:
             params["stop"] = stop
